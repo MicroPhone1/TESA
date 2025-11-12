@@ -1,65 +1,153 @@
-import Image from "next/image";
+// app/page.tsx  (หรือหากไฟล์รวม 2 ฝั่งชื่ออื่น ให้แทนที่ไฟล์นั้น)
+"use client";
 
-export default function Home() {
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
+import dayjs from "dayjs";
+import clsx from "clsx";
+
+const LeafletMap = dynamic(() => import("@/components/LeafletMap"), { ssr: false });
+
+type Side = "defence" | "offence";
+
+function PanelHeader({ side, status }: { side: Side; status: "IDLE" | "LIVE" | "ERROR" }) {
+  const title = side === "defence" ? "Defence Dashboard" : "Offence Dashboard";
+  const icon = side === "defence" ? "🛡️" : "⚔️";
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="flex items-center justify-between px-4 py-3 bg-[#0f1a26] rounded-t-2xl border-b border-[#223244]">
+      <div className="text-lg font-semibold tracking-wide">
+        <span className="mr-2">{icon}</span>{title}
+      </div>
+      <span
+        className={clsx(
+          "px-3 py-1 rounded-full text-xs font-semibold",
+          status === "IDLE" && "bg-emerald-900/50 text-emerald-300 border border-emerald-700/50",
+          status === "LIVE" && "bg-amber-900/40 text-amber-300 border border-amber-700/50",
+          status === "ERROR" && "bg-rose-900/40 text-rose-300 border border-rose-700/50",
+        )}
+      >
+        {status}
+      </span>
+    </div>
+  );
+}
+
+function InputRow({
+  placeholder1,
+  placeholder2,
+  onConnect,
+  onLoadOnce,
+}: {
+  placeholder1: string;
+  placeholder2: string;
+  onConnect: () => void;
+  onLoadOnce: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-12 gap-3 px-4 py-3">
+      <input className="col-span-4 bg-[#0c1420] border border-[#1f2c3b] rounded-lg px-3 py-2 text-sm" placeholder={placeholder1}/>
+      <input className="col-span-4 bg-[#0c1420] border border-[#1f2c3b] rounded-lg px-3 py-2 text-sm" placeholder={placeholder2}/>
+      <button onClick={onConnect} className="col-span-2 bg-[#1e2a38] hover:bg-[#263447] border border-[#2b3b4f] rounded-lg text-sm font-medium">Connect</button>
+      <button onClick={onLoadOnce} className="col-span-2 bg-[#1e2a38] hover:bg-[#263447] border border-[#2b3b4f] rounded-lg text-sm font-medium">Load once</button>
+    </div>
+  );
+}
+
+function InfoCard({ title, children }: { title: string; children?: React.ReactNode }) {
+  return (
+    <div className="bg-[#0f1a26] border border-[#203145] rounded-xl p-4">
+      <div className="text-sm text-amber-300 font-semibold mb-2">{title}</div>
+      <div className="text-sm text-slate-300">{children ?? "…"}</div>
+    </div>
+  );
+}
+
+export default function BattlePage() {
+  // clock เดิมเคยอยู่ใน Top Bar — ตัดออก ไม่จำเป็นในหน้านี้เพราะย้ายไป Navbar แล้ว
+  const [statusL, setStatusL] = useState<"IDLE" | "LIVE" | "ERROR">("IDLE");
+  const [statusR, setStatusR] = useState<"IDLE" | "LIVE" | "ERROR">("IDLE");
+
+  const onConnect = (side: Side) => {
+    side === "defence" ? setStatusL("LIVE") : setStatusR("LIVE");
+  };
+  const onLoadOnce = (side: Side) => {
+    console.log("load-once", side);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0b1220] text-white">
+      {/* (ลบ Top Bar ออกแล้ว) */}
+
+      {/* Two columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+        {/* LEFT: Defence */}
+        <div className="bg-[#0b1624] border border-[#1f2f43] rounded-2xl overflow-hidden">
+          <PanelHeader side="defence" status={statusL} />
+          <InputRow
+            placeholder1="Camera ID"
+            placeholder2="Token (x-camera-token)"
+            onConnect={() => onConnect("defence")}
+            onLoadOnce={() => onLoadOnce("defence")}
+          />
+          <div className="px-4 pb-4">
+            <div className="text-amber-300 font-semibold mb-3">Realtime Feed</div>
+            <div className="grid grid-cols-12 gap-4">
+              <div className="col-span-7">
+                <div className="h-[420px] bg-[#0f1a26] border border-[#203145] rounded-xl p-2">
+                  <LeafletMap className="h-full" />
+                </div>
+              </div>
+              <div className="col-span-5 flex flex-col gap-3">
+                <InfoCard title="Image Viewer">
+                  <div className="text-slate-400 text-xs mb-2">iframe</div>
+                  <div className="text-xs">Selected: -</div>
+                  <div className="text-xs">Timestamp: -</div>
+                </InfoCard>
+                <InfoCard title="Camera Info" />
+                <InfoCard title="Proximity Alert (300m)">
+                  <div className="text-sm">Nearest distance: -</div>
+                </InfoCard>
+                <InfoCard title="Weather (near selected)" />
+                <InfoCard title="POIs in 3km radius" />
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* RIGHT: Offence */}
+        <div className="bg-[#0b1624] border border-[#1f2f43] rounded-2xl overflow-hidden">
+          <PanelHeader side="offence" status={statusR} />
+          <InputRow
+            placeholder1="Camera ID"
+            placeholder2="Token (x-camera-token)"
+            onConnect={() => onConnect("offence")}
+            onLoadOnce={() => onLoadOnce("offence")}
+          />
+          <div className="px-4 pb-4">
+            <div className="text-amber-300 font-semibold mb-3">Realtime Feed</div>
+            <div className="grid grid-cols-12 gap-4">
+              <div className="col-span-7">
+                <div className="h-[420px] bg-[#101820] border border-[#203145] rounded-xl p-2 grid place-items-center text-slate-500">
+                  (map / video)
+                </div>
+              </div>
+              <div className="col-span-5 flex flex-col gap-3">
+                <InfoCard title="Image Viewer">
+                  <div className="text-slate-400 text-xs mb-2">iframe</div>
+                  <div className="text-xs">Selected: -</div>
+                  <div className="text-xs">Timestamp: -</div>
+                </InfoCard>
+                <InfoCard title="Camera Info" />
+                <InfoCard title="Proximity Alert (300m)">
+                  <div className="text-sm">Nearest distance: -</div>
+                </InfoCard>
+                <InfoCard title="Weather (near selected)" />
+                <InfoCard title="POIs in 3km radius" />
+              </div>
+            </div>
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
